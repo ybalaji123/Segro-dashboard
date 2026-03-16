@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Segregation Dustbin Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <div class="background-decor">
+        <div class="circle circle-1"></div>
+        <div class="circle circle-2"></div>
+    </div>
+
+    <div class="dashboard-container">
+        <header>
+            <div class="logo">
+                <span class="icon">♻️</span>
+                <h1>Segro<span></span></h1>
+            </div>
+            <div class="status-badge">
+                <span class="pulse"></span>
+                <span id="system-status">System Live</span>
+            </div>
+        </header>
+
+        <main>
+            <section class="overview-section">
+                <div class="bin-container" id="metal-bin">
+                    <div class="bin-header">
+                        <h3>Metal Waste</h3>
+                        <span class="bin-icon">🧲</span>
+                    </div>
+                    <div class="bin-visual">
+                        <div class="fill-level" style="height: 0%;"></div>
+                        <div class="percentage-display">0%</div>
+                    </div>
+                    <div class="bin-footer">
+                        <p>Status: <span class="status-text">Normal</span></p>
+                    </div>
+                </div>
+
+                <div class="bin-container" id="plastic-bin">
+                    <div class="bin-header">
+                        <h3>Plastic Waste</h3>
+                        <span class="bin-icon">🔵</span>
+                    </div>
+                    <div class="bin-visual">
+                        <div class="fill-level" style="height: 0%;"></div>
+                        <div class="percentage-display">0%</div>
+                    </div>
+                    <div class="bin-footer">
+                        <p>Status: <span class="status-text">Normal</span></p>
+                    </div>
+                </div>
+
+                <div class="bin-container" id="normal-bin">
+                    <div class="bin-header">
+                        <h3>Normal Waste</h3>
+                        <span class="bin-icon">🗑️</span>
+                    </div>
+                    <div class="bin-visual">
+                        <div class="fill-level" style="height: 0%;"></div>
+                        <div class="percentage-display">0%</div>
+                    </div>
+                    <div class="bin-footer">
+                        <p>Status: <span class="status-text">Normal</span></p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="details-section">
+                <div class="chart-card glass">
+                    <h3>Waste Distribution History</h3>
+                    <canvas id="historyChart"></canvas>
+                </div>
+                <div class="feed-card glass">
+                    <h3>Live Sensor Feed</h3>
+                    <div class="feed-list" id="sensor-feed">
+                        <!-- Items will be injected here -->
+                        <div class="feed-item placeholder">Waiting for data...</div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>&copy; 2026 Smart Segregation System | Connected via ESP32 WiFi</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>

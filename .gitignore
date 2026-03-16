@@ -1,0 +1,12 @@
+venv/
+.env
+__pycache__/
+*.pyc
+.gemini/
+.agents/
+.agent/
+_agents/
+_agent/
+brain/
+node_modules/
+.DS_Store
