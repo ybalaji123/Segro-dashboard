@@ -303,3 +303,50 @@ footer {
         grid-template-columns: 1fr;
     }
 }
+
+@media (max-width: 600px) {
+    .dashboard-container {
+        padding: 1rem;
+    }
+
+    header {
+        flex-direction: column;
+        gap: 1.5rem;
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .logo .icon {
+        font-size: 2rem;
+    }
+
+    .logo h1 {
+        font-size: 1.5rem;
+    }
+
+    .status-badge {
+        padding: 0.4rem 1rem;
+        font-size: 0.9rem;
+    }
+
+    .bin-container {
+        padding: 1.5rem;
+    }
+
+    .bin-visual {
+        width: 140px;
+        height: 200px;
+    }
+
+    .percentage-display {
+        font-size: 1.5rem;
+    }
+
+    .details-section h3 {
+        font-size: 1.25rem;
+    }
+
+    .glass {
+        padding: 1.5rem;
+    }
+}
