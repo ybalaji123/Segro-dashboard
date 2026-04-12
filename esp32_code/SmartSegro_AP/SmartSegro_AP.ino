@@ -1,16 +1,16 @@
 /*
-    Smart Segro — ESP32 Access Point (AP) Server
+    Smart Segro — ESP32 Station (STA) Client
     ─────────────────────────────────────────────
-    This code turns your ESP32 into a Wi-Fi Access Point and Web Server.
-    The laptop connects to this network and fetches data via `GET /data`.
+    This code connects your ESP32 to a Phone Hotspot (Wi-Fi).
+    The laptop also connects to the SAME hotspot and fetches data via `GET /data` using the ESP32's assigned IP.
 */
 
 #include <WiFi.h>
 #include <WebServer.h>
 
 // ── Configuration ────────────────────────────────────────────────────────
-const char* AP_SSID     = "SmartSegro_WiFi";
-const char* AP_PASSWORD = "smart_password";   // Must be at least 8 chars
+const char* WIFI_SSID     = "Safty_bin";
+const char* WIFI_PASSWORD = "12345678";
 
 // Port 80 for HTTP Server
 WebServer server(80);
@@ -54,13 +54,18 @@ void setup() {
     pinMode(pinMetalSensor, INPUT);
     pinMode(pinPlasticSensor, INPUT);
 
-    // 1. Start Access Point
-    Serial.println("\n[!] Starting Access Point...");
-    WiFi.softAP(AP_SSID, AP_PASSWORD);
+    // 1. Connect to Phone Hotspot
+    Serial.println("\n[!] Connecting to Phone Hotspot...");
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
-    IPAddress IP = WiFi.softAPIP();
-    Serial.print("[OK] AP IP address: ");
-    Serial.println(IP); // Naturally this defaults to 192.168.4.1
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+    }
+
+    Serial.println("");
+    Serial.print("[OK] Connected to WiFi. ESP32 IP address: ");
+    Serial.println(WiFi.localIP());
 
     // 2. Configure HTTP Routes
     server.on("/data", HTTP_GET, handleGetSensorData);

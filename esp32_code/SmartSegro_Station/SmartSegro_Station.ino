@@ -11,8 +11,8 @@
 
 // ── Configuration ────────────────────────────────────────────────────────
 // Replace these with your Phone's Mobile Hotspot details!
-const char* WIFI_SSID     = "YOUR_PHONE_HOTSPOT_NAME";
-const char* WIFI_PASSWORD = "YOUR_HOTSPOT_PASSWORD";
+const char* WIFI_SSID     = "Safty_bin";
+const char* WIFI_PASSWORD = "12345678";
 
 // Port 80 for HTTP Server
 WebServer server(80);
@@ -88,3 +88,4 @@ void loop() {
     }
     */
 }
+

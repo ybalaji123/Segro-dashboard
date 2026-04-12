@@ -1,78 +1,82 @@
 """
-Smart Segro — Polling Worker
+Smart Segro — Polling Worker (HTML SCAPER VERSION)
 ─────────────────────────────
 This script runs in the background on the laptop.
-It continuously polls the ESP32 (which is acting as an Access Point)
-at http://192.168.4.1/data.
+It continuously polls the ESP32 (which is connected to the same Phone Hotspot as the laptop)
+at http://<ESP32_IP>/data.
 
-When a new waste item is documented (based on reading ID), this
-script forwards it to the FastAPI backend to store in MongoDB and
+Since the ESP32 is currently returning HTML instead of JSON, we scrape the HTML.
+When a new waste item is documented (changing from 'None' to something else), 
+this script forwards it to the FastAPI/Render backend to store in MongoDB and
 serve to the dashboard.
 """
 
 import requests
 import time
+import re
 from datetime import datetime
 
 # ── Configuration ─────────────────────────────────────────────
-# 1. Look at your ESP32's display/serial monitor to find its IP.
-# 2. Type it here. (e.g., http://192.168.43.14/data)
-ESP32_URL = "http://192.168.X.X/data"
+ESP32_URL = "http://192.168.137.56/"
+BACKEND_URL = "https://segro-dashboard.onrender.com/api/sensor-data"
 
-BACKEND_URL = "http://localhost:8080/api/sensor-data"
-
-# Keeps track of the last processed ID to prevent duplicates
-last_processed_id = 0
+# Keeps track of the last waste state to prevent spamming
+last_waste_state = "None"
 
 def poll_and_forward():
-    global last_processed_id
+    global last_waste_state
 
     try:
-        # 1. Fetch data from ESP32
-        # Timeout of 2s because if we are not connected to ESP32 Wi-Fi, it will hang.
+        # 1. Fetch HTML from ESP32
         esp_response = requests.get(ESP32_URL, timeout=2)
         
         if esp_response.status_code == 200:
-            data = esp_response.json()
-            current_id = data.get("id", 0)
+            text = esp_response.text
+            
+            # Scrape HTML: <h2>Waste Type: None</h2>
+            waste_match = re.search(r'<h2>Waste Type:\s*(.*?)</h2>', text)
+            # Scrape HTML: <h2>Status: Waiting</h2>
+            status_match = re.search(r'<h2>Status:\s*(.*?)</h2>', text)
+            
+            current_waste = waste_match.group(1) if waste_match else "None"
+            current_status = status_match.group(1) if status_match else "Waiting"
 
-            # If the ID has increased, it means a new item was dropped
-            if current_id > last_processed_id:
-                print(f"[{datetime.now().strftime('%H:%M:%S')}] NEW DATA >> {data['waste_type']} ({data['status']})")
+            # If waste type changed from None to something like "Metal" or "Plastic"
+            if current_waste != "None" and current_waste != last_waste_state:
+                print(f"[{datetime.now().strftime('%H:%M:%S')}] NEW DATA >> {current_waste} ({current_status})")
                 
-                # Forward to our FastAPI backend
+                # Forward to our FastAPI backend on Render
                 payload = {
-                    "waste_type": data.get("waste_type", "Unknown"),
-                    "status": data.get("status", "Collected")
+                    "waste_type": current_waste,
+                    "status": current_status
                 }
 
                 try:
-                    backend_resp = requests.post(BACKEND_URL, json=payload, timeout=2)
+                    backend_resp = requests.post(BACKEND_URL, json=payload, timeout=5)
                     if backend_resp.status_code == 200:
-                        print("  [OK] Saved to MongoDB via FastAPI.")
-                        last_processed_id = current_id
+                        print("  [OK] Saved to MongoDB via API.")
                     else:
                         print(f"  [ERR] Backend Error: {backend_resp.status_code}")
                 except requests.ConnectionError:
-                    print("  [ERR] Could not reach FastAPI Backend. Is it running on localhost:8080?")
-                    
-            else:
-                # Same ID or 0, do nothing
-                pass
+                    print("  [ERR] Could not reach Backend.")
+                
+            # Update last state so we don't send duplicates
+            last_waste_state = current_waste
+            
         else:
             print(f"[{datetime.now().strftime('%H:%M:%S')}] ESP32 returned HTTP {esp_response.status_code}")
 
     except requests.ConnectionError:
-        print(f"[{datetime.now().strftime('%H:%M:%S')}] [WARN] Cannot reach ESP32 at {ESP32_URL}. Are you connected to SmartSegro_WiFi?")
+        print(f"[{datetime.now().strftime('%H:%M:%S')}] [WARN] Cannot reach ESP32 at {ESP32_URL}. Are you on the SAME hotspot network, and is the IP correct?")
     except requests.Timeout:
-        print(f"[{datetime.now().strftime('%H:%M:%S')}] [WARN] Timeout reaching ESP32.")
-    except Exception as e:
+        # print(f"[{datetime.now().strftime('%H:%M:%S')}] [WARN] Timeout reaching ESP32.")
         pass
-
+    except Exception as e:
+        print(f"[{datetime.now().strftime('%H:%M:%S')}] [ERR] Unexpected error: {e}")
 
 if __name__ == "__main__":
     print(f"=================================================")
-    print(f" Smart Segro ESP32 Poller Started")
+    print(f" Smart Segro ESP32 Poller Started (HTML Version)")
     print(f" Target: {ESP32_URL}")
     print(f" Destination: {BACKEND_URL}")
     print(f"=================================================\n")
