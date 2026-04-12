@@ -1,175 +1,194 @@
-const API_BASE = "http://localhost:8000/api";
+/**
+ * Smart Segro Dashboard — Frontend Logic
+ * ───────────────────────────────────────
+ * Polls GET /api/dashboard-data every 2 seconds.
+ * Updates 3 stat cards + recent activity table.
+ * Sets system status indicator based on data freshness.
+ */
 
-// DOM Elements
-const bins = {
-    "Metal": document.getElementById('metal-bin'),
-    "Plastic": document.getElementById('plastic-bin'),
-    "Other": document.getElementById('normal-bin')
-};
+// When served from FastAPI, use relative URLs.
+// When opening index.html directly, override this with your laptop's IP.
+const API_BASE = "";
 
-const feedContainer = document.getElementById('sensor-feed');
-let historyChart = null;
+// ── DOM Refs ────────────────────────────────────────────────────────────────
+const totalEl    = document.getElementById("total-count");
+const metalsEl   = document.getElementById("metals-count");
+const plasticsEl = document.getElementById("plastics-count");
+const bodyEl     = document.getElementById("activity-body");
+const dotEl      = document.getElementById("status-dot");
+const labelEl    = document.getElementById("status-label");
 
-// Initialize Chart.js
-function initChart() {
-    const ctx = document.getElementById('historyChart').getContext('2d');
-    historyChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: [],
-            datasets: [{
-                label: 'Fill Level (%)',
-                data: [],
-                borderColor: '#3b82f6',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                fill: true,
-                tension: 0.4
-            }]
-        },
-        options: {
-            responsive: true,
-            scales: {
-                y: { beginAtZero: true, max: 100, grid: { color: 'rgba(255, 255, 255, 0.05)' } },
-                x: { grid: { display: false } }
-            },
-            plugins: {
-                legend: { display: false }
-            }
-        }
-    });
+// Cache previous counts for count-up flash detection
+let prevCounts = { total: null, metals: null, plastics: null };
+
+// Track consecutive errors for backoff
+let errorStreak = 0;
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Format an ISO timestamp string to "HH:MM:SS AM/PM" */
+function formatTime(isoStr) {
+    try {
+        const d = new Date(isoStr);
+        return d.toLocaleTimeString([], {
+            hour: "2-digit", minute: "2-digit", second: "2-digit",
+        });
+    } catch {
+        return isoStr;
+    }
 }
 
-// Update the visual of a specific bin
-function updateBinUI(category, percentage) {
-    const binEl = bins[category] || bins["Other"];
-    const fillEl = binEl.querySelector('.fill-level');
-    const percentEl = binEl.querySelector('.percentage-display');
-    const statusText = binEl.querySelector('.status-text');
+/** Format an ISO timestamp string to "Apr 12, 10:45:22 AM" */
+function formatDateTime(isoStr) {
+    try {
+        const d = new Date(isoStr);
+        return d.toLocaleString([], {
+            month:  "short",
+            day:    "numeric",
+            hour:   "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+        });
+    } catch {
+        return isoStr;
+    }
+}
 
-    fillEl.style.height = `${percentage}%`;
-    percentEl.textContent = `${Math.round(percentage)}%`;
+/** Animated number count-up from old value to new */
+function animateCount(el, newVal) {
+    const oldVal = parseInt(el.textContent) || 0;
+    if (oldVal === newVal) return;
 
-    if (percentage > 90) {
-        statusText.textContent = "Full";
-        statusText.className = "status-text full";
-    } else if (percentage > 70) {
-        statusText.textContent = "Warning";
-        statusText.className = "status-text warning";
+    // Flash accent colour on change
+    el.classList.remove("flash");
+    void el.offsetWidth;          // force reflow
+    el.classList.add("flash");
+
+    const duration = 600;         // ms
+    const start    = performance.now();
+
+    function step(now) {
+        const progress = Math.min((now - start) / duration, 1);
+        const eased    = 1 - Math.pow(1 - progress, 3);   // ease-out cubic
+        el.textContent = Math.round(oldVal + (newVal - oldVal) * eased);
+        if (progress < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+}
+
+/** Return styled HTML for a material tag (Metal vs Plastic) */
+function materialTag(wasteType) {
+    const isMetal = /metal/i.test(wasteType);
+    const cls  = isMetal ? "tag-metal"  : "tag-plastic";
+    const icon = isMetal ? "⚙"         : "♻";
+    return `<span class="material-tag ${cls}">${icon} ${wasteType}</span>`;
+}
+
+/** Return styled HTML for a status badge */
+function statusTag(statusStr) {
+    return `<span class="status-tag">✔ ${statusStr}</span>`;
+}
+
+// ── System Status Indicator ─────────────────────────────────────────────────
+
+/**
+ * Update the header status pill.
+ * - Green "System Online"  → data arrived within the last 10 s
+ * - Yellow "Sorting…"      → data between 10 s and 60 s old
+ * - Red "Check Bin"        → data older than 60 s or fetch error
+ */
+function updateStatusIndicator(latestTimestamp, hasError) {
+    dotEl.className = "status-dot";   // reset
+
+    if (hasError) {
+        dotEl.classList.add("error");
+        labelEl.textContent = "Error / Check Bin";
+        return;
+    }
+
+    if (!latestTimestamp) {
+        labelEl.textContent = "Waiting for ESP32…";
+        return;
+    }
+
+    const ageSec = (Date.now() - new Date(latestTimestamp).getTime()) / 1000;
+
+    if (ageSec < 10) {
+        dotEl.classList.add("online");
+        labelEl.textContent = "System Online";
+    } else if (ageSec < 60) {
+        dotEl.classList.add("sorting");
+        labelEl.textContent = "Sorting…";
     } else {
-        statusText.textContent = "Normal";
-        statusText.className = "status-text ok";
+        dotEl.classList.add("error");
+        labelEl.textContent = "Check Bin";
     }
 }
 
-// Add an item to the feed
-function addToFeed(item) {
-    const time = new Date(item.timestamp).toLocaleTimeString();
-    const itemEl = document.createElement('div');
-    itemEl.className = 'feed-item';
-    
-    // Clear placeholder if it exists
-    const placeholder = feedContainer.querySelector('.placeholder');
-    if (placeholder) placeholder.remove();
+// ── Activity Table ──────────────────────────────────────────────────────────
 
-    const catClass = `cat-${item.waste_category.toLowerCase()}`;
-    
-    itemEl.innerHTML = `
-        <div class="item-info">
-            <span class="item-cat ${catClass}">${item.waste_category}</span>
-            <span class="item-time" style="margin-left: 10px; font-size: 0.8rem; color: #94a3b8;">${time}</span>
-        </div>
-        <div class="item-meta" style="font-size: 0.9rem;">
-            Dist: ${item.ultrasonic_distance}cm
-        </div>
-    `;
-
-    feedContainer.prepend(itemEl);
-
-    // Keep only last 10
-    if (feedContainer.children.length > 10) {
-        feedContainer.removeChild(feedContainer.lastChild);
+/** Rebuild the activity table with the latest entries */
+function renderActivity(entries) {
+    if (!entries || entries.length === 0) {
+        bodyEl.innerHTML = `
+            <tr class="placeholder-row">
+                <td colspan="3">
+                    <div class="empty-state">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="1.5" aria-hidden="true">
+                            <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+                            <polyline points="13 2 13 9 20 9"/>
+                        </svg>
+                        <p>No activity recorded yet. Drop some waste!</p>
+                    </div>
+                </td>
+            </tr>`;
+        return;
     }
+
+    bodyEl.innerHTML = entries
+        .map((e, i) => `
+            <tr style="animation-delay:${i * 60}ms">
+                <td class="cell-time">${formatDateTime(e.timestamp)}</td>
+                <td>${materialTag(e.waste_type)}</td>
+                <td>${statusTag(e.status)}</td>
+            </tr>`)
+        .join("");
 }
 
-// Fetch latest data from API
-async function fetchLatest() {
+// ── Main Poll Function ──────────────────────────────────────────────────────
+
+async function fetchDashboardData() {
     try {
-        const response = await fetch(`${API_BASE}/latest`);
-        const data = await response.json();
-        
-        const statusBadge = document.getElementById('system-status');
-        const pulse = document.querySelector('.pulse');
+        const res = await fetch(`${API_BASE}/api/dashboard-data`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
 
-        if (data && data.waste_category && data.timestamp) {
-            // Check if data is "fresh" (sent within last 10 seconds)
-            const lastSeen = new Date(data.timestamp);
-            const now = new Date();
-            const diffSeconds = (now - lastSeen) / 1000;
+        errorStreak = 0;
 
-            if (diffSeconds < 10) {
-                statusBadge.textContent = "ESP32 Online";
-                pulse.style.backgroundColor = "var(--accent-normal)";
-                pulse.style.boxShadow = "0 0 10px var(--accent-normal)";
-            } else {
-                statusBadge.textContent = "ESP32 Standby";
-                pulse.style.backgroundColor = "var(--accent-warning)";
-                pulse.style.boxShadow = "0 0 10px var(--accent-warning)";
-            }
+        // Update metric cards with count-up animation
+        animateCount(totalEl,    data.total_processed ?? 0);
+        animateCount(metalsEl,   data.metals_count    ?? 0);
+        animateCount(plasticsEl, data.plastics_count  ?? 0);
 
-            updateBinUI(data.waste_category, data.fill_percentage || 0);
-            
-            // Only add to feed if it's a new entry (simplification for this demo)
-            // In a real app we'd compare IDs
-            const latestFeedItem = feedContainer.querySelector('.feed-item:not(.placeholder) .item-time');
-            const dataTime = new Date(data.timestamp).toLocaleTimeString();
-            if (!latestFeedItem || latestFeedItem.textContent !== dataTime) {
-                addToFeed(data);
-                
-                // Update chart with live point
-                if (historyChart) {
-                    const label = new Date(data.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                    historyChart.data.labels.push(label);
-                    historyChart.data.datasets[0].data.push(data.fill_percentage);
-                    if (historyChart.data.labels.length > 20) {
-                        historyChart.data.labels.shift();
-                        historyChart.data.datasets[0].data.shift();
-                    }
-                    historyChart.update('none');
-                }
-            }
-        } else {
-            statusBadge.textContent = "Waiting for ESP32...";
-            pulse.style.backgroundColor = "#94a3b8";
-        }
-    } catch (error) {
-        console.error("Error fetching latest data:", error);
+        // Render activity table
+        renderActivity(data.recent_activity || []);
+
+        // Update status from most recent entry's timestamp
+        const latestTs = data.recent_activity?.[0]?.timestamp ?? null;
+        updateStatusIndicator(latestTs, false);
+
+    } catch (err) {
+        errorStreak++;
+        console.warn(`[Segro] Fetch error (streak ${errorStreak}):`, err.message);
+        updateStatusIndicator(null, true);
     }
 }
 
-// Fetch history initially
-async function fetchHistory() {
-    try {
-        const response = await fetch(`${API_BASE}/history?limit=10`);
-        const data = await response.json();
-        
-        if (Array.isArray(data)) {
-            data.reverse().forEach(item => {
-                const time = new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                historyChart.data.labels.push(time);
-                historyChart.data.datasets[0].data.push(item.fill_percentage);
-                addToFeed(item);
-            });
-            historyChart.update();
-        }
-    } catch (error) {
-        console.error("Error fetching history:", error);
-    }
-}
+// ── Bootstrap ───────────────────────────────────────────────────────────────
 
-// Initial Run
-document.addEventListener('DOMContentLoaded', () => {
-    initChart();
-    fetchHistory();
-    // Poll every 3 seconds
-    setInterval(fetchLatest, 3000);
+document.addEventListener("DOMContentLoaded", () => {
+    // Immediate first load, then poll every 2 seconds
+    fetchDashboardData();
+    setInterval(fetchDashboardData, 2000);
 });

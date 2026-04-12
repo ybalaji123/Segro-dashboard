@@ -1,8 +1,8 @@
 fastapi
-uvicorn
+uvicorn[standard]
 motor
 pydantic
-streamlit
 pymongo
-pandas
 python-dotenv
+dnspython
+requests

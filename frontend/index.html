@@ -4,94 +4,170 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Segregation Dustbin Dashboard</title>
+    <title>Smart Segro Dashboard — Waste Segregation System</title>
+    <meta name="description"
+        content="Live dashboard for the Smart Waste Segregation Dustbin powered by ESP32. Track metal and plastic waste collection in real-time.">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>♻</text></svg>">
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
 </head>
 
 <body>
-    <div class="background-decor">
-        <div class="circle circle-1"></div>
-        <div class="circle circle-2"></div>
+    <!-- Ambient background effects -->
+    <div class="bg-mesh" aria-hidden="true"></div>
+    <div class="bg-blobs" aria-hidden="true">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
     </div>
 
-    <div class="dashboard-container">
-        <header>
-            <div class="logo">
-                <span class="icon">♻️</span>
-                <h1>Segro<span></span></h1>
+    <div class="dashboard-wrapper">
+
+        <!-- ── Header ─────────────────────────────────────────────────────── -->
+        <header class="site-header glass-panel" id="site-header">
+            <div class="brand">
+                <div class="brand-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M3 6h18" />
+                        <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                        <line x1="10" y1="11" x2="10" y2="17" />
+                        <line x1="14" y1="11" x2="14" y2="17" />
+                    </svg>
+                </div>
+                <div class="brand-text">
+                    <h1>Smart <span class="brand-accent">Segro</span> Dashboard</h1>
+                    <p class="brand-sub">Smart Waste Segregation System</p>
+                </div>
             </div>
-            <div class="status-badge">
-                <span class="pulse"></span>
-                <span id="system-status">System Live</span>
+
+            <div class="header-right">
+                <div class="status-pill" id="status-pill">
+                    <span class="status-dot" id="status-dot"></span>
+                    <span class="status-label" id="status-label">Connecting…</span>
+                </div>
             </div>
         </header>
 
-        <main>
-            <section class="overview-section">
-                <div class="bin-container" id="metal-bin">
-                    <div class="bin-header">
-                        <h3>Metal Waste</h3>
-                        <span class="bin-icon">🧲</span>
-                    </div>
-                    <div class="bin-visual">
-                        <div class="fill-level" style="height: 0%;"></div>
-                        <div class="percentage-display">0%</div>
-                    </div>
-                    <div class="bin-footer">
-                        <p>Status: <span class="status-text">Normal</span></p>
-                    </div>
-                </div>
+        <!-- ── Metric Cards ──────────────────────────────────────────────── -->
+        <section class="metrics-grid" aria-label="Waste statistics">
 
-                <div class="bin-container" id="plastic-bin">
-                    <div class="bin-header">
-                        <h3>Plastic Waste</h3>
-                        <span class="bin-icon">🔵</span>
-                    </div>
-                    <div class="bin-visual">
-                        <div class="fill-level" style="height: 0%;"></div>
-                        <div class="percentage-display">0%</div>
-                    </div>
-                    <div class="bin-footer">
-                        <p>Status: <span class="status-text">Normal</span></p>
-                    </div>
+            <div class="metric-card card-total" id="card-total">
+                <div class="card-icon-wrap" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                    </svg>
                 </div>
+                <div class="card-body">
+                    <p class="card-label">Total Waste Processed</p>
+                    <p class="card-value" id="total-count">—</p>
+                    <p class="card-sub">items recorded</p>
+                </div>
+                <div class="card-accent-line"></div>
+                <div class="card-glow"></div>
+            </div>
 
-                <div class="bin-container" id="normal-bin">
-                    <div class="bin-header">
-                        <h3>Normal Waste</h3>
-                        <span class="bin-icon">🗑️</span>
-                    </div>
-                    <div class="bin-visual">
-                        <div class="fill-level" style="height: 0%;"></div>
-                        <div class="percentage-display">0%</div>
-                    </div>
-                    <div class="bin-footer">
-                        <p>Status: <span class="status-text">Normal</span></p>
-                    </div>
+            <div class="metric-card card-metal" id="card-metal">
+                <div class="card-icon-wrap" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="3" />
+                        <path
+                            d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83" />
+                    </svg>
                 </div>
-            </section>
+                <div class="card-body">
+                    <p class="card-label">Metals Collected</p>
+                    <p class="card-value" id="metals-count">—</p>
+                    <p class="card-sub">via inductive sensor</p>
+                </div>
+                <div class="card-accent-line"></div>
+                <div class="card-glow"></div>
+            </div>
 
-            <section class="details-section">
-                <div class="chart-card glass">
-                    <h3>Waste Distribution History</h3>
-                    <canvas id="historyChart"></canvas>
+            <div class="metric-card card-plastic" id="card-plastic">
+                <div class="card-icon-wrap" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path
+                            d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                    </svg>
                 </div>
-                <div class="feed-card glass">
-                    <h3>Live Sensor Feed</h3>
-                    <div class="feed-list" id="sensor-feed">
-                        <!-- Items will be injected here -->
-                        <div class="feed-item placeholder">Waiting for data...</div>
-                    </div>
+                <div class="card-body">
+                    <p class="card-label">Plastics / Non-Metals</p>
+                    <p class="card-value" id="plastics-count">—</p>
+                    <p class="card-sub">non-metallic items</p>
                 </div>
-            </section>
-        </main>
+                <div class="card-accent-line"></div>
+                <div class="card-glow"></div>
+            </div>
 
-        <footer>
-            <p>&copy; 2026 Smart Segregation System | Connected via ESP32 WiFi</p>
+        </section>
+
+        <!-- ── Architecture Info ──────────────────────────────────────────── -->
+        <section class="info-banner glass-panel" id="info-banner">
+            <div class="info-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <path d="M5 12.55a11 11 0 0 1 14.08 0" />
+                    <path d="M1.42 9a16 16 0 0 1 21.16 0" />
+                    <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
+                    <line x1="12" y1="20" x2="12.01" y2="20" />
+                </svg>
+            </div>
+            <div class="info-text">
+                <strong>Connected via Mobile Hotspot</strong>
+                <span>ESP32 → Phone Wi-Fi → Laptop (FastAPI + MongoDB) → Dashboard</span>
+            </div>
+        </section>
+
+        <!-- ── Recent Activity ───────────────────────────────────────────── -->
+        <section class="activity-section glass-panel" id="activity-section">
+            <div class="activity-header">
+                <h2>Recent Activity</h2>
+                <div class="live-badge" aria-label="Live updates every 2 seconds">
+                    <span class="live-dot" aria-hidden="true"></span>
+                    <span>Live</span>
+                </div>
+            </div>
+
+            <div class="table-wrap" role="region" aria-label="Activity log">
+                <table class="activity-table" id="activity-table">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Material Detected</th>
+                            <th>Drop Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="activity-body">
+                        <tr class="placeholder-row">
+                            <td colspan="3">
+                                <div class="empty-state">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                                        aria-hidden="true">
+                                        <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
+                                        <polyline points="13 2 13 9 20 9" />
+                                    </svg>
+                                    <p>Waiting for ESP32 data…</p>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ── Footer ───────────────────────────────────────────────────── -->
+        <footer class="site-footer" id="site-footer">
+            <p>© 2026 Smart Segro System &nbsp;|&nbsp; Connected via ESP32 Wi-Fi Hotspot &nbsp;|&nbsp; Polling every 2s
+            </p>
         </footer>
-    </div>
+
+    </div><!-- /dashboard-wrapper -->
 
     <script src="script.js"></script>
 </body>
