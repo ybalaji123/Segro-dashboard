@@ -6,9 +6,8 @@
  * Sets system status indicator based on data freshness.
  */
 
-// When served from FastAPI, use relative URLs.
-// When opening index.html directly, override this with your laptop's IP.
-const API_BASE = "";
+// Set to your live Render Cloud URL so you can open index.html directly from your desktop
+const API_BASE = "https://segro-dashboard.onrender.com";
 
 // ── DOM Refs ────────────────────────────────────────────────────────────────
 const totalEl    = document.getElementById("total-count");
